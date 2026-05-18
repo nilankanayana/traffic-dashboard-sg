@@ -64,6 +64,22 @@ export default function MapView({ view, cameras, taxiPoints, selectedId, onSelec
     cameraLayerRef.current = L.layerGroup();
     dotLayerRef.current = L.layerGroup();
 
+    const HomeControl = L.Control.extend({
+      options: { position: 'topright' },
+      onAdd() {
+        const el = L.DomUtil.create('div', 'leaflet-bar leaflet-control map-home-control');
+        el.innerHTML =
+          '<a href="#" role="button" title="Reset view" aria-label="Reset map to Singapore overview">⌂</a>';
+        L.DomEvent.disableClickPropagation(el);
+        L.DomEvent.on(el, 'click', (e) => {
+          L.DomEvent.preventDefault(e);
+          map.flyTo(DEFAULT_CENTER, DEFAULT_ZOOM, { duration: 0.6 });
+        });
+        return el;
+      },
+    });
+    new HomeControl().addTo(map);
+
     map.on('zoomend', () => setZoom(map.getZoom()));
 
     const ro = new ResizeObserver(() => map.invalidateSize());

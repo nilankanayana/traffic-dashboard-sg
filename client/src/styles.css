@@ -681,6 +681,24 @@ a:hover {
   user-select: none;
 }
 
+.map-home-control a {
+  display: grid !important;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text) !important;
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  text-decoration: none !important;
+  cursor: pointer;
+}
+
+.map-home-control a:hover {
+  background: var(--surface-muted) !important;
+}
+
 .leaflet-container {
   font-family: inherit !important;
   background: var(--surface-muted) !important;
