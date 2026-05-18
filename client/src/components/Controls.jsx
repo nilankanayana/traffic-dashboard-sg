@@ -3,7 +3,8 @@ export default function Controls({
   lastUpdated,
   loading,
   error,
-  cameraCount,
+  count,
+  label,
   hasData,
   stale,
 }) {
@@ -20,7 +21,7 @@ export default function Controls({
     badgeContent = (
       <>
         <span className="live-dot" style={{ background: 'var(--stale)' }} aria-hidden="true" />
-        {cameraCount} cameras · stale data
+        {count.toLocaleString()} {label} · stale data
       </>
     );
   } else {
@@ -29,7 +30,7 @@ export default function Controls({
     badgeContent = (
       <>
         <span className="live-dot" aria-hidden="true" />
-        {cameraCount} cameras · {time}
+        {count.toLocaleString()} {label} · {time}
       </>
     );
   }
@@ -42,8 +43,8 @@ export default function Controls({
         className="refresh-btn"
         onClick={onRefresh}
         disabled={loading}
-        aria-label="Refresh camera data"
-        title="Fetch the latest camera images now"
+        aria-label={`Refresh ${label} data`}
+        title={`Fetch the latest ${label} data now`}
       >
         <span className={`refresh-icon${loading ? ' refresh-icon--spinning' : ''}`} aria-hidden="true">↻</span>
         {loading ? 'Refreshing…' : 'Refresh now'}

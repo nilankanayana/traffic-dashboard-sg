@@ -14,14 +14,14 @@ const CACHE_TTL_MS = Number(process.env.PROXY_CACHE_TTL_MS || 30_000);
 
 const app = express();
 
-let cache = null;
-let inflight = null;
+function authHeaders() {
+  const h = { Accept: 'application/json' };
+  if (API_KEY) h['x-api-key'] = API_KEY;
+  return h;
+}
 
-async function fetchUpstream() {
-  const headers = { Accept: 'application/json' };
-  if (API_KEY) headers['x-api-key'] = API_KEY;
-  const url = `${API_BASE}/transport/traffic-images`;
-  const res = await fetch(url, { headers });
+async function fetchJson(url) {
+  const res = await fetch(url, { headers: authHeaders() });
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     throw new Error(`Upstream ${res.status}: ${body.slice(0, 200)}`);
@@ -29,25 +29,44 @@ async function fetchUpstream() {
   return res.json();
 }
 
-async function getCameras() {
-  const now = Date.now();
-  if (cache && now - cache.fetchedAt < CACHE_TTL_MS) {
-    return { ...cache, fromCache: true };
-  }
-  if (inflight) return inflight;
-  inflight = (async () => {
-    try {
-      const payload = await fetchUpstream();
-      cache = { fetchedAt: Date.now(), payload };
-      return { ...cache, fromCache: false };
-    } finally {
-      inflight = null;
-    }
-  })();
-  return inflight;
+function createCachedFetcher({ ttl, fetcher }) {
+  let cache = null;
+  let inflight = null;
+  return {
+    async get() {
+      const now = Date.now();
+      if (cache && now - cache.fetchedAt < ttl) {
+        return { ...cache, fromCache: true };
+      }
+      if (inflight) return inflight;
+      inflight = (async () => {
+        try {
+          const payload = await fetcher();
+          cache = { fetchedAt: Date.now(), payload };
+          return { ...cache, fromCache: false };
+        } finally {
+          inflight = null;
+        }
+      })();
+      return inflight;
+    },
+    getCache() {
+      return cache;
+    },
+  };
 }
 
-function shapeResponse(fetchedAt, payload, extra = {}) {
+const cameras = createCachedFetcher({
+  ttl: CACHE_TTL_MS,
+  fetcher: () => fetchJson(`${API_BASE}/transport/traffic-images`),
+});
+
+const taxis = createCachedFetcher({
+  ttl: CACHE_TTL_MS,
+  fetcher: () => fetchJson(`${API_BASE}/transport/taxi-availability`),
+});
+
+function shapeCameras(fetchedAt, payload, extra = {}) {
   const item = payload?.items?.[0];
   return {
     fetchedAt,
@@ -58,30 +77,56 @@ function shapeResponse(fetchedAt, payload, extra = {}) {
   };
 }
 
-app.get('/api/cameras', async (_req, res) => {
-  try {
-    const { fetchedAt, payload, fromCache } = await getCameras();
-    res.set('Cache-Control', 'no-store');
-    res.set('X-Cache', fromCache ? 'HIT' : 'MISS');
-    res.set('X-Fetched-At', new Date(fetchedAt).toISOString());
-    res.json(shapeResponse(fetchedAt, payload));
-  } catch (err) {
-    console.error('[proxy] upstream failed:', err.message);
-    if (cache) {
-      res.set('X-Cache', 'STALE');
-      res.json(shapeResponse(cache.fetchedAt, cache.payload, { stale: true }));
-    } else {
-      res.status(502).json({ error: 'upstream_unavailable', message: err.message });
+function shapeTaxis(fetchedAt, payload, extra = {}) {
+  const feature = payload?.features?.[0];
+  const coords = feature?.geometry?.coordinates ?? [];
+  return {
+    fetchedAt,
+    apiTimestamp: feature?.properties?.timestamp ?? null,
+    count: feature?.properties?.taxi_count ?? coords.length,
+    coordinates: coords,
+    ...extra,
+  };
+}
+
+function makeHandler(resource, shape) {
+  return async (_req, res) => {
+    try {
+      const { fetchedAt, payload, fromCache } = await resource.get();
+      res.set('Cache-Control', 'no-store');
+      res.set('X-Cache', fromCache ? 'HIT' : 'MISS');
+      res.set('X-Fetched-At', new Date(fetchedAt).toISOString());
+      res.json(shape(fetchedAt, payload));
+    } catch (err) {
+      console.error('[proxy] upstream failed:', err.message);
+      const cached = resource.getCache();
+      if (cached) {
+        res.set('X-Cache', 'STALE');
+        res.json(shape(cached.fetchedAt, cached.payload, { stale: true }));
+      } else {
+        res.status(502).json({ error: 'upstream_unavailable', message: err.message });
+      }
     }
-  }
-});
+  };
+}
+
+app.get('/api/cameras', makeHandler(cameras, shapeCameras));
+app.get('/api/taxis', makeHandler(taxis, shapeTaxis));
 
 app.get('/api/health', (_req, res) => {
+  const cc = cameras.getCache();
+  const tc = taxis.getCache();
   res.json({
     ok: true,
     cacheTtlMs: CACHE_TTL_MS,
-    hasCache: !!cache,
-    cacheAgeMs: cache ? Date.now() - cache.fetchedAt : null,
+    cameras: {
+      hasCache: !!cc,
+      cacheAgeMs: cc ? Date.now() - cc.fetchedAt : null,
+    },
+    taxis: {
+      hasCache: !!tc,
+      cacheAgeMs: tc ? Date.now() - tc.fetchedAt : null,
+    },
     hasApiKey: !!API_KEY,
   });
 });

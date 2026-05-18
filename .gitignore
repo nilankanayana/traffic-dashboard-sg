@@ -45,3 +45,6 @@ coverage/
 .cache/
 .parcel-cache/
 .turbo/
+
+# Private notes — keep local, this is our edge
+docs/IDEAS.md
