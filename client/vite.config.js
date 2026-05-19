@@ -5,9 +5,9 @@ import path from 'node:path';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, path.resolve(__dirname, '..'), '');
   const serverPort = env.SERVER_PORT || env.PORT || '3000';
-  const serverHost = env.SERVER_HOST || '100.72.108.26';
+  const serverHost = env.SERVER_HOST || '127.0.0.1';
   const clientPort = Number(env.CLIENT_PORT || 8501);
-  const clientHost = env.CLIENT_HOST || '100.72.108.26';
+  const clientHost = env.CLIENT_HOST || '127.0.0.1';
   const allowedHosts = (env.CLIENT_ALLOWED_HOSTS || '')
     .split(',')
     .map((s) => s.trim())
