@@ -575,12 +575,21 @@ a:hover {
  * ============================================================ */
 
 .app-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
   padding: 0.6rem 1.5rem;
   font-size: 0.72rem;
   color: var(--text-muted);
   background: var(--surface);
   border-top: 1px solid var(--border);
   text-align: center;
+}
+
+.app-footer-sep {
+  color: var(--text-subtle);
 }
 
 /* ============================================================
