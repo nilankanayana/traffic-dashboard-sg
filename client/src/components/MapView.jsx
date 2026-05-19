@@ -1,13 +1,21 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 const DEFAULT_CENTER = [1.3521, 103.8198];
 const DEFAULT_ZOOM = 11;
+const NEAR_ME_ZOOM = 14;
 
 const TILE_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
 const TILE_ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+
+const LOCATE_ICON_SVG =
+  '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/>' +
+  '<line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/>' +
+  '<line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/>' +
+  '</svg>';
 
 function makeIcon(selected) {
   return L.divIcon({
@@ -21,11 +29,20 @@ function makeIcon(selected) {
 const defaultIcon = makeIcon(false);
 const selectedIcon = makeIcon(true);
 
+const userLocationIcon = L.divIcon({
+  className: 'user-location-marker',
+  html: '<span class="user-location-pulse"></span><span class="user-location-dot"></span>',
+  iconSize: [22, 22],
+  iconAnchor: [11, 11],
+});
+
 export default function MapView({ cameras, selectedId, onSelect }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const cameraLayerRef = useRef(null);
   const markersRef = useRef(new Map());
+  const userMarkerRef = useRef(null);
+  const [locationError, setLocationError] = useState(null);
 
   useEffect(() => {
     if (mapRef.current || !containerRef.current) return;
@@ -58,6 +75,58 @@ export default function MapView({ cameras, selectedId, onSelect }) {
     });
     new HomeControl().addTo(map);
 
+    const NearMeControl = L.Control.extend({
+      options: { position: 'topright' },
+      onAdd() {
+        const el = L.DomUtil.create('div', 'leaflet-bar leaflet-control map-nearme-control');
+        const a = L.DomUtil.create('a', '', el);
+        a.href = '#';
+        a.title = 'Show my location';
+        a.setAttribute('role', 'button');
+        a.setAttribute('aria-label', 'Show my location and zoom to nearby area');
+        a.innerHTML = LOCATE_ICON_SVG;
+        L.DomEvent.disableClickPropagation(el);
+        L.DomEvent.on(el, 'click', (e) => {
+          L.DomEvent.preventDefault(e);
+          if (a.classList.contains('is-loading')) return;
+          if (!navigator.geolocation) {
+            setLocationError('Geolocation is not supported by your browser.');
+            return;
+          }
+          a.classList.add('is-loading');
+          setLocationError(null);
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              const latlng = [pos.coords.latitude, pos.coords.longitude];
+              if (userMarkerRef.current) {
+                userMarkerRef.current.setLatLng(latlng);
+              } else {
+                userMarkerRef.current = L.marker(latlng, {
+                  icon: userLocationIcon,
+                  interactive: false,
+                  keyboard: false,
+                  zIndexOffset: 1000,
+                }).addTo(map);
+              }
+              map.flyTo(latlng, NEAR_ME_ZOOM, { duration: 0.8 });
+              a.classList.remove('is-loading');
+            },
+            (err) => {
+              let msg = 'Unable to get your location.';
+              if (err.code === err.PERMISSION_DENIED) msg = 'Location permission denied.';
+              else if (err.code === err.POSITION_UNAVAILABLE) msg = 'Location is currently unavailable.';
+              else if (err.code === err.TIMEOUT) msg = 'Location request timed out.';
+              setLocationError(msg);
+              a.classList.remove('is-loading');
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+          );
+        });
+        return el;
+      },
+    });
+    new NearMeControl().addTo(map);
+
     const ro = new ResizeObserver(() => map.invalidateSize());
     ro.observe(containerRef.current);
 
@@ -67,6 +136,7 @@ export default function MapView({ cameras, selectedId, onSelect }) {
       mapRef.current = null;
       cameraLayerRef.current = null;
       markersRef.current.clear();
+      userMarkerRef.current = null;
     };
   }, []);
 
@@ -106,5 +176,22 @@ export default function MapView({ cameras, selectedId, onSelect }) {
     }
   }, [selectedId]);
 
-  return <div ref={containerRef} className="map" />;
+  return (
+    <div className="map-wrap">
+      <div ref={containerRef} className="map" />
+      {locationError && (
+        <div className="map-toast" role="alert">
+          <span>{locationError}</span>
+          <button
+            type="button"
+            className="map-toast-close"
+            onClick={() => setLocationError(null)}
+            aria-label="Dismiss location error"
+          >
+            ×
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }

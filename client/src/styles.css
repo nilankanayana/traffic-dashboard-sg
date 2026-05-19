@@ -185,11 +185,57 @@ a:hover {
   flex-direction: column;
 }
 
+.map-wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
 .map {
   flex: 1;
   background: var(--surface-muted);
   min-width: 0;
   min-height: 0;
+}
+
+.map-toast {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.5rem 0.5rem 0.9rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  font-size: 0.82rem;
+  color: var(--text);
+  max-width: calc(100% - 24px);
+}
+
+.map-toast-close {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.map-toast-close:hover {
+  background: var(--surface-muted);
+  color: var(--text);
 }
 
 .panel {
@@ -578,7 +624,8 @@ a:hover {
   animation: live-pulse 1.6s ease-out infinite;
 }
 
-.map-home-control a {
+.map-home-control a,
+.map-nearme-control a {
   display: grid !important;
   place-items: center;
   width: 30px;
@@ -592,8 +639,68 @@ a:hover {
   cursor: pointer;
 }
 
-.map-home-control a:hover {
+.map-home-control a:hover,
+.map-nearme-control a:hover {
   background: var(--surface-muted) !important;
+}
+
+.map-nearme-control a svg {
+  display: block;
+}
+
+.map-nearme-control a.is-loading {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.map-nearme-control a.is-loading svg {
+  animation: spin 0.9s linear infinite;
+}
+
+.user-location-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.user-location-marker {
+  --user-color: #14b8a6;
+}
+
+[data-theme='dark'] .user-location-marker {
+  --user-color: #2dd4bf;
+}
+
+.user-location-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--user-color);
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.15), 0 1px 6px rgba(20, 184, 166, 0.55);
+  box-sizing: border-box;
+  z-index: 2;
+}
+
+.user-location-pulse {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--user-color);
+  opacity: 0.4;
+  transform: translate(-50%, -50%);
+  animation: user-pulse 2s ease-out infinite;
+}
+
+@keyframes user-pulse {
+  0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0.5; }
+  100% { transform: translate(-50%, -50%) scale(1.8); opacity: 0; }
 }
 
 .leaflet-container {
