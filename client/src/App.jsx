@@ -55,7 +55,6 @@ export default function App() {
           Data from <a href="https://data.gov.sg" target="_blank" rel="noreferrer">data.gov.sg</a>,
           provided by the Land Transport Authority.
         </span>
-        <span className="app-footer-sep" aria-hidden="true">·</span>
         <span>
           Made by Nilanka with <a href="https://claude.com/claude-code" target="_blank" rel="noreferrer">Claude Code</a> — 2026 May
         </span>
