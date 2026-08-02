@@ -12,9 +12,10 @@ export default defineConfig(({ mode }) => {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
+  const basePath = env.VITE_BASE_PATH || process.env.VITE_BASE_PATH || '';
   return {
     plugins: [react()],
-    base: env.VITE_BASE_PATH ? `${env.VITE_BASE_PATH}/` : '/',
+    base: basePath ? `${basePath}/` : '/',
     server: {
       host: clientHost,
       port: clientPort,
